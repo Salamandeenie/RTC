@@ -32,12 +32,14 @@
         <button id="getIPBtn">Get My IP</button>
         <div id="ipDisplay">Your IP: <span id="ip"></span></div>
         <input type="text" id="connectInput" placeholder="Enter target IP address" />
-        <button id="connectBtn">Connect to Peer</button>
+        <button id="connectBtn">Send 'I'm here' Signal</button>
         <div id="status">Status: Not Connected</div>
         <div id="errorMsg" style="color: red;"></div>
     </div>
 
     <script>
+        let myIP = '';
+
         // Function to validate IP address
         function isValidIP(ip) {
             const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
@@ -61,11 +63,11 @@
                     // Listen for ICE candidates
                     peerConnection.onicecandidate = event => {
                         if (event.candidate) {
-                            // Extract the IP address from the candidate
                             const candidate = event.candidate.candidate;
                             const parts = candidate.split(' ');
                             const ip = parts[4]; // Extracting the IP address
                             if (isValidIP(ip)) {
+                                myIP = ip; // Store the IP for later use
                                 resolve(ip);
                                 peerConnection.close(); // Close the connection after retrieving the IP
                             }
@@ -89,7 +91,7 @@
                 });
         };
 
-        // Simulate a connection attempt to a target peer
+        // Simulate sending a connection signal to a target peer
         document.getElementById('connectBtn').onclick = () => {
             const targetIP = document.getElementById('connectInput').value;
             const errorMsg = document.getElementById('errorMsg');
@@ -104,14 +106,16 @@
             sendConnectionSignal(targetIP);
         };
 
-        // Function to send a connection signal
+        // Function to simulate sending a connection signal
         function sendConnectionSignal(targetIP) {
-            // Placeholder for connection logic
-            // Here you would typically set up your WebRTC peer connection
-
-            // Simulate successful connection
-            document.body.style.backgroundColor = 'lime'; // Change background to lime green
-            document.getElementById('status').textContent = 'Status: Connected to ' + targetIP;
+            // Simulate receiving the "I'm here" signal
+            if (targetIP !== myIP) { // Only simulate if the target IP is not the same as your own
+                // Here we would normally send the signal over the network
+                document.body.style.backgroundColor = 'lime'; // Change background to lime green
+                document.getElementById('status').textContent = 'Status: Connected to ' + targetIP;
+            } else {
+                document.getElementById('errorMsg').textContent = 'Error: You cannot connect to your own IP.';
+            }
         }
     </script>
 </body>
