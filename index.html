@@ -3,45 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Peer Connection Client</title>
+    <title>WebRTC Peer Connection</title>
     <style>
         body {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
             font-family: Arial, sans-serif;
             background-color: #f0f0f0;
         }
-        #container {
-            text-align: center;
-        }
-        #ipDisplay {
+        #ipDisplay, #errorMsg {
             font-size: 24px;
-            margin-bottom: 20px;
+            margin-top: 20px;
         }
         #status {
             margin-top: 20px;
             font-size: 18px;
         }
-        input {
-            padding: 10px;
-            margin-top: 10px;
-            width: 200px;
-        }
-        button {
-            padding: 10px 15px;
-            margin: 10px;
+        #connectInput {
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <div id="container">
+    <div>
+        <button id="getIPBtn">Get My IP</button>
         <div id="ipDisplay">Your IP: <span id="ip"></span></div>
-        <input type="text" id="targetIp" placeholder="Enter target IP" />
-        <button id="getIpBtn">Get My IP</button>
-        <button id="connectBtn">Connect to Target IP</button>
+        <input type="text" id="connectInput" placeholder="Enter target IP address" />
+        <button id="connectBtn">Connect to Peer</button>
         <div id="status">Status: Not Connected</div>
+        <div id="errorMsg" style="color: red;"></div>
     </div>
 
     <script>
@@ -53,7 +46,13 @@
             urls: 'stun:stun.l.google.com:19302'
         };
 
-        // Function to get the public IP address using WebRTC
+        // Function to validate IP address
+        function isValidIP(ip) {
+            const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+            return ipPattern.test(ip);
+        }
+
+        // Get the public IP address using WebRTC
         function getPublicIP(callback) {
             const peerConnection = new RTCPeerConnection({ iceServers: [stunServer] });
             peerConnection.createDataChannel('dataChannel');
@@ -72,17 +71,21 @@
         }
 
         // Display the IP address
-        document.getElementById('getIpBtn').onclick = () => {
+        document.getElementById('getIPBtn').onclick = () => {
             getPublicIP(ip => {
                 document.getElementById('ip').textContent = ip;
+                document.getElementById('errorMsg').textContent = ''; // Clear any previous errors
             });
         };
 
-        // Connect to another peer
+        // Connect to a target peer
         document.getElementById('connectBtn').onclick = () => {
-            const targetIp = document.getElementById('targetIp').value;
-            if (!targetIp) {
-                alert("Please enter a target IP address.");
+            const targetIP = document.getElementById('connectInput').value;
+            const errorMsg = document.getElementById('errorMsg');
+            errorMsg.textContent = ''; // Clear previous error messages
+
+            if (!isValidIP(targetIP)) {
+                errorMsg.textContent = 'Error: Invalid IP address format.';
                 return;
             }
 
@@ -123,6 +126,7 @@
                 document.getElementById('status').textContent = 'Status: Connected';
             }).catch(error => {
                 console.error('Error establishing connection:', error);
+                errorMsg.textContent = 'Error: Connection failed.';
             });
         };
     </script>
