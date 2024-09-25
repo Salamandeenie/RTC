@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Peer Connection</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+        }
+        #ipDisplay {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        #status {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        input {
+            width: 200px;
+            padding: 5px;
+            margin: 10px;
+        }
+        button {
+            padding: 10px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div id="ipDisplay">Your IP: <span id="ip"></span></div>
+        <input type="text" id="targetIP" placeholder="Enter Target IP" />
+        <button id="getIPBtn">Get My IP</button>
+        <button id="connectBtn">Connect to Target IP</button>
+        <div id="status">Status: Not Connected</div>
+    </div>
+
+    <script>
+        let localPeerConnection;
+        let remotePeerConnection;
+
+        // STUN server to get the public IP address
+        const stunServer = {
+            urls: 'stun:stun.l.google.com:19302'
+        };
+
+        // Get the public IP address using WebRTC
+        function getPublicIP(callback) {
+            const peerConnection = new RTCPeerConnection({ iceServers: [stunServer] });
+            peerConnection.createDataChannel('dataChannel');
+            peerConnection.createOffer().then(offer => {
+                return peerConnection.setLocalDescription(offer);
+            });
+
+            peerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    const candidate = event.candidate.candidate;
+                    const parts = candidate.split(' ');
+                    const ip = parts[4]; // The public IP address
+                    callback(ip);
+                }
+            };
+        }
+
+        // Display the IP address when the button is clicked
+        document.getElementById('getIPBtn').onclick = () => {
+            getPublicIP(ip => {
+                document.getElementById('ip').textContent = ip;
+            });
+        };
+
+        // Connect to another peer with the provided IP
+        document.getElementById('connectBtn').onclick = () => {
+            const targetIP = document.getElementById('targetIP').value;
+            if (!targetIP) {
+                alert('Please enter a target IP address.');
+                return;
+            }
+
+            localPeerConnection = new RTCPeerConnection({ iceServers: [stunServer] });
+            remotePeerConnection = new RTCPeerConnection({ iceServers: [stunServer] });
+
+            // Create data channel
+            const dataChannel = localPeerConnection.createDataChannel('dataChannel');
+
+            // When the remote peer receives an ICE candidate, add it to the remote peer connection
+            localPeerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    remotePeerConnection.addIceCandidate(event.candidate);
+                }
+            };
+
+            // When remote peer connection receives an ICE candidate
+            remotePeerConnection.onicecandidate = event => {
+                if (event.candidate) {
+                    localPeerConnection.addIceCandidate(event.candidate);
+                }
+            };
+
+            // Create offer and set local description
+            localPeerConnection.createOffer().then(offer => {
+                return localPeerConnection.setLocalDescription(offer);
+            }).then(() => {
+                return remotePeerConnection.setRemoteDescription(localPeerConnection.localDescription);
+            }).then(() => {
+                return remotePeerConnection.createAnswer();
+            }).then(answer => {
+                return remotePeerConnection.setLocalDescription(answer);
+            }).then(() => {
+                return localPeerConnection.setRemoteDescription(remotePeerConnection.localDescription);
+            }).then(() => {
+                // Successful connection
+                document.body.style.backgroundColor = 'black';
+                document.getElementById('status').textContent = 'Status: Connected';
+            }).catch(error => {
+                console.error('Error establishing connection:', error);
+            });
+        };
+    </script>
+</body>
+</html>
