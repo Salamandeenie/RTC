@@ -89,7 +89,7 @@
                 });
         };
 
-        // Connect to a target peer
+        // Simulate a connection attempt to a target peer
         document.getElementById('connectBtn').onclick = () => {
             const targetIP = document.getElementById('connectInput').value;
             const errorMsg = document.getElementById('errorMsg');
@@ -100,11 +100,19 @@
                 return;
             }
 
-            // Placeholder for connection logic
-            // You can implement the peer connection logic here
-            document.getElementById('status').textContent = 'Status: Connection initiated (not implemented yet).';
-            document.body.style.backgroundColor = 'black'; // Indicate connection initiation
+            // Simulate sending a connection signal
+            sendConnectionSignal(targetIP);
         };
+
+        // Function to send a connection signal
+        function sendConnectionSignal(targetIP) {
+            // Placeholder for connection logic
+            // Here you would typically set up your WebRTC peer connection
+
+            // Simulate successful connection
+            document.body.style.backgroundColor = 'lime'; // Change background to lime green
+            document.getElementById('status').textContent = 'Status: Connected to ' + targetIP;
+        }
     </script>
 </body>
 </html>
