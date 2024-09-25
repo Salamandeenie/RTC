@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Peer Connection</title>
+    <title>WebRTC Host/Receiver</title>
     <style>
         body {
             display: flex;
@@ -33,12 +33,15 @@
         <div id="ipDisplay">Your IP: <span id="ip"></span></div>
         <input type="text" id="connectInput" placeholder="Enter target IP address" />
         <button id="connectBtn">Send 'I'm here' Signal</button>
+        <button id="hostBtn">Host Mode (Listen for Signals)</button>
         <div id="status">Status: Not Connected</div>
         <div id="errorMsg" style="color: red;"></div>
     </div>
 
     <script>
         let myIP = '';
+        let isHost = false;
+        let connection = null;
 
         // Function to validate IP address
         function isValidIP(ip) {
@@ -111,11 +114,41 @@
             // Simulate receiving the "I'm here" signal
             if (targetIP !== myIP) { // Only simulate if the target IP is not the same as your own
                 // Here we would normally send the signal over the network
-                document.body.style.backgroundColor = 'lime'; // Change background to lime green
-                document.getElementById('status').textContent = 'Status: Connected to ' + targetIP;
+                console.log("Signal sent to: " + targetIP); // Debug output
+
+                // Simulate that the host received the signal
+                receiveSignalFromPeer(targetIP);
             } else {
                 document.getElementById('errorMsg').textContent = 'Error: You cannot connect to your own IP.';
             }
+        }
+
+        // Host mode: listen for incoming "I'm here" messages
+        document.getElementById('hostBtn').onclick = () => {
+            isHost = true;
+            document.getElementById('status').textContent = 'Status: Hosting (Listening for Signals)';
+            startListeningForSignals();
+        };
+
+        // Function to simulate listening for signals
+        function startListeningForSignals() {
+            // In a real implementation, you'd set up a network listener here.
+            // Simulate receiving a signal after a delay for demonstration purposes.
+            setInterval(() => {
+                if (isHost) {
+                    const targetIP = myIP; // Assume we're checking for our own IP for testing
+                    console.log("Listening for signal from: " + targetIP); // Debug output
+                    // Simulate a connection signal being received
+                    receiveSignalFromPeer(targetIP);
+                }
+            }, 5000); // Check every 5 seconds
+        }
+
+        // Function to simulate receiving a signal from a peer
+        function receiveSignalFromPeer(targetIP) {
+            // Simulate the "I'm here" signal reception
+            document.body.style.backgroundColor = 'lime'; // Change background to lime green
+            document.getElementById('status').textContent = 'Status: Connected to ' + targetIP;
         }
     </script>
 </body>
