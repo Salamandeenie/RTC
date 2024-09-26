@@ -3,153 +3,172 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Host/Receiver</title>
-    <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-        }
-        #ipDisplay, #errorMsg {
-            font-size: 24px;
-            margin-top: 20px;
-        }
-        #status {
-            margin-top: 20px;
-            font-size: 18px;
-        }
-        #connectInput {
-            margin-top: 20px;
-        }
-    </style>
+    <title>WebRTC Host/Join Example</title>
 </head>
 <body>
-    <div>
-        <button id="getIPBtn">Get My IP</button>
-        <div id="ipDisplay">Your IP: <span id="ip"></span></div>
-        <input type="text" id="connectInput" placeholder="Enter target IP address" />
-        <button id="connectBtn">Send 'I'm here' Signal</button>
-        <button id="hostBtn">Host Mode (Listen for Signals)</button>
-        <div id="status">Status: Not Connected</div>
-        <div id="errorMsg" style="color: red;"></div>
-    </div>
+    <h1>WebRTC Room</h1>
+
+    <button id="hostButton">Host a Room</button>
+    <button id="joinButton">Join a Room</button>
+
+    <input id="roomIdInput" type="text" placeholder="Enter Room ID to Join" />
+    <button id="connectButton">Connect</button>
+
+    <p id="status"></p>
 
     <script>
-        let myIP = '';
-        let isHost = false;
-        let connection = null;
+        const hostButton = document.getElementById('hostButton');
+        const joinButton = document.getElementById('joinButton');
+        const connectButton = document.getElementById('connectButton');
+        const roomIdInput = document.getElementById('roomIdInput');
+        const status = document.getElementById('status');
 
-        // Function to validate IP address
-        function isValidIP(ip) {
-            const ipPattern = /^(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
-            return ipPattern.test(ip);
-        }
+        let peerConnection;
+        let dataChannel;
+        let signalingSocket;
+        let roomId = null;
 
-        // Get the public IP address using WebRTC
-        function getPublicIP() {
-            return new Promise((resolve, reject) => {
-                const peerConnection = new RTCPeerConnection({
-                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-                });
+        // Signaling server connection
+        function connectToSignalingServer() {
+            signalingSocket = new WebSocket('ws://localhost:8080'); // Replace with your signaling server
 
-                // Create a data channel
-                peerConnection.createDataChannel('dataChannel');
+            signalingSocket.onmessage = (message) => {
+                const data = JSON.parse(message.data);
 
-                // Create an offer and set the local description
-                peerConnection.createOffer().then(offer => {
-                    return peerConnection.setLocalDescription(offer);
-                }).then(() => {
-                    // Listen for ICE candidates
-                    peerConnection.onicecandidate = event => {
-                        if (event.candidate) {
-                            const candidate = event.candidate.candidate;
-                            const parts = candidate.split(' ');
-                            const ip = parts[4]; // Extracting the IP address
-                            if (isValidIP(ip)) {
-                                myIP = ip; // Store the IP for later use
-                                resolve(ip);
-                                peerConnection.close(); // Close the connection after retrieving the IP
-                            }
-                        }
-                    };
-                }).catch(error => {
-                    reject(error);
-                });
-            });
-        }
+                switch (data.type) {
+                    case 'room-created':
+                        roomId = data.roomId;
+                        status.textContent = `Room created! ID: ${roomId}`;
+                        break;
 
-        // Display the IP address
-        document.getElementById('getIPBtn').onclick = () => {
-            getPublicIP()
-                .then(ip => {
-                    document.getElementById('ip').textContent = ip;
-                    document.getElementById('errorMsg').textContent = ''; // Clear any previous errors
-                })
-                .catch(error => {
-                    document.getElementById('errorMsg').textContent = 'Error retrieving IP: ' + error.message;
-                });
-        };
+                    case 'peer-connected':
+                        status.textContent = 'Peer connected. Negotiating WebRTC connection...';
+                        createOffer();
+                        break;
 
-        // Simulate sending a connection signal to a target peer
-        document.getElementById('connectBtn').onclick = () => {
-            const targetIP = document.getElementById('connectInput').value;
-            const errorMsg = document.getElementById('errorMsg');
-            errorMsg.textContent = ''; // Clear previous error messages
+                    case 'joined-room':
+                        status.textContent = `Joined room ${data.roomId}. Negotiating WebRTC connection...`;
+                        break;
 
-            if (!isValidIP(targetIP)) {
-                errorMsg.textContent = 'Error: Invalid IP address format.';
-                return;
-            }
+                    case 'signal':
+                        handleSignal(data.signal);
+                        break;
 
-            // Simulate sending a connection signal
-            sendConnectionSignal(targetIP);
-        };
-
-        // Function to simulate sending a connection signal
-        function sendConnectionSignal(targetIP) {
-            // Simulate receiving the "I'm here" signal
-            if (targetIP !== myIP) { // Only simulate if the target IP is not the same as your own
-                // Here we would normally send the signal over the network
-                console.log("Signal sent to: " + targetIP); // Debug output
-
-                // Simulate that the host received the signal
-                receiveSignalFromPeer(targetIP);
-            } else {
-                document.getElementById('errorMsg').textContent = 'Error: You cannot connect to your own IP.';
-            }
-        }
-
-        // Host mode: listen for incoming "I'm here" messages
-        document.getElementById('hostBtn').onclick = () => {
-            isHost = true;
-            document.getElementById('status').textContent = 'Status: Hosting (Listening for Signals)';
-            startListeningForSignals();
-        };
-
-        // Function to simulate listening for signals
-        function startListeningForSignals() {
-            // In a real implementation, you'd set up a network listener here.
-            // Simulate receiving a signal after a delay for demonstration purposes.
-            setInterval(() => {
-                if (isHost) {
-                    const targetIP = myIP; // Assume we're checking for our own IP for testing
-                    console.log("Listening for signal from: " + targetIP); // Debug output
-                    // Simulate a connection signal being received
-                    receiveSignalFromPeer(targetIP);
+                    case 'error':
+                        status.textContent = `Error: ${data.message}`;
+                        break;
                 }
-            }, 5000); // Check every 5 seconds
+            };
         }
 
-        // Function to simulate receiving a signal from a peer
-        function receiveSignalFromPeer(targetIP) {
-            // Simulate the "I'm here" signal reception
-            document.body.style.backgroundColor = 'lime'; // Change background to lime green
-            document.getElementById('status').textContent = 'Status: Connected to ' + targetIP;
+        // WebRTC setup
+        function setupWebRTC() {
+            peerConnection = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' }
+                ]
+            });
+
+            // Handle ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    signalingSocket.send(JSON.stringify({
+                        type: 'signal',
+                        signal: { candidate: event.candidate },
+                        targetRoom: roomId
+                    }));
+                }
+            };
+
+            // Handle data channel events
+            peerConnection.ondatachannel = (event) => {
+                dataChannel = event.channel;
+                dataChannel.onmessage = (e) => {
+                    console.log('Received message:', e.data);
+                };
+            };
+
+            // If you're hosting, create the data channel
+            if (!dataChannel) {
+                dataChannel = peerConnection.createDataChannel('chat');
+                dataChannel.onmessage = (event) => {
+                    console.log('Received message:', event.data);
+                };
+            }
         }
+
+        // Host a room
+        hostButton.onclick = () => {
+            connectToSignalingServer();
+            signalingSocket.onopen = () => {
+                signalingSocket.send(JSON.stringify({ type: 'create-room' }));
+                setupWebRTC();
+            };
+        };
+
+        // Join a room
+        joinButton.onclick = () => {
+            const roomToJoin = prompt('Enter room ID:');
+            if (roomToJoin) {
+                connectToSignalingServer();
+                roomId = roomToJoin;
+                signalingSocket.onopen = () => {
+                    signalingSocket.send(JSON.stringify({
+                        type: 'join-room',
+                        roomId: roomId,
+                        peerId: 'somePeerId'
+                    }));
+                    setupWebRTC();
+                };
+            }
+        };
+
+        // Handle WebRTC offer creation (Host)
+        async function createOffer() {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+
+            signalingSocket.send(JSON.stringify({
+                type: 'signal',
+                signal: { sdp: peerConnection.localDescription },
+                targetRoom: roomId
+            }));
+        }
+
+        // Handle WebRTC answer creation (Peer)
+        async function createAnswer(offer) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            signalingSocket.send(JSON.stringify({
+                type: 'signal',
+                signal: { sdp: peerConnection.localDescription },
+                targetRoom: roomId
+            }));
+        }
+
+        // Handle incoming signaling data
+        async function handleSignal(signal) {
+            if (signal.sdp) {
+                if (signal.sdp.type === 'offer') {
+                    await createAnswer(signal.sdp);
+                } else if (signal.sdp.type === 'answer') {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+                }
+            }
+
+            if (signal.candidate) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            }
+        }
+
+        // Example message sending (from host or peer after connection)
+        connectButton.onclick = () => {
+            if (dataChannel) {
+                dataChannel.send('Hello from the client!');
+            }
+        };
     </script>
 </body>
 </html>
