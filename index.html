@@ -3,114 +3,80 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetplayJS Example</title>
-    <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
+    <title>Simple Netplay Example</title>
     <style>
         body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background: black;
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
         }
-        canvas {
-            position: absolute;
-            opacity: 1;
-            transition: opacity 0.5s;
-            background: black; /* Default canvas background */
-        }
-        #controls {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            z-index: 1; /* Ensure buttons are above canvas */
-        }
-        button {
-            margin: 10px;
+        #displayBoard {
+            margin-top: 20px;
             padding: 10px;
-            font-size: 18px;
+            border: 1px solid black;
+            width: 200px;
+            height: 100px;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    <div id="controls">
-        <button id="timeButton">Show Time</button>
-        <button id="colorButton">Change Background Color</button>
-    </div>
+    <h1>Simple Netplay Example</h1>
+    <input type="text" id="inputText" placeholder="Write something">
+    <button id="sendButton">Send</button>
+    
+    <div id="displayBoard">Waiting for input...</div>
+
+    <!-- Load the NetplayJS library -->
+    <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
 
     <script>
+        // Create a simple class extending from Netplayjs Game
         class SimpleGame extends netplayjs.Game {
             constructor() {
                 super();
-                this.color = 'black'; // Default background color
-                this.width = 600; // Set canvas width
-                this.height = 300; // Set canvas height
+                this.state = {
+                    message: 'Waiting for input...'
+                };
             }
 
-            onConnected() {
-                // Set canvas opacity to 0 to reveal buttons
-                document.getElementById('gameCanvas').style.opacity = '0';
-                console.log("Connected to another player.");
+            // Called when a message is received from the other peer
+            onMessage(player, message) {
+                console.log(`Received message: ${message}`);
+                this.updateDisplay(message);
             }
 
-            draw(canvas) {
-                const ctx = canvas.getContext("2d");
-                ctx.fillStyle = this.color; // Use the chosen color
-                ctx.fillRect(0, 0, this.width, this.height);
+            // Update the display board with the new message
+            updateDisplay(message) {
+                this.state.message = message;
+                document.getElementById('displayBoard').innerText = this.state.message;
             }
 
-            // Function to update the background color
-            updateColor(color) {
-                this.color = color;
+            // This will be called when the "Send" button is pressed
+            write2board(message) {
+                console.log(`Sending message: ${message}`);
+                this.players.forEach(player => player.sendMessage(message));
+                this.updateDisplay(message);
             }
         }
 
-        SimpleGame.timestep = 1000 / 60; // 60 FPS
-        SimpleGame.canvasSize = { width: 600, height: 300 };
+        // Initialize the game
+        const game = new SimpleGame();
 
-        // Create and start the game
-        const gameInstance = new netplayjs.RollbackWrapper(SimpleGame);
-        
-        // Set up button functionality
-        document.getElementById('timeButton').addEventListener('click', () => {
-            const now = new Date().toLocaleTimeString();
-            console.log(`Current time: ${now}`); // Log current time
-
-            // Send time message to the other player
-            gameInstance.players.forEach(player => {
-                player.sendMessage(`TIME:${now}`);
+        // Connect to peer (auto-host or auto-join)
+        game.startHost('simple-netplay-example').then(() => {
+            console.log('Connected as host!');
+        }).catch(() => {
+            game.startClient('simple-netplay-example').then(() => {
+                console.log('Connected as client!');
             });
         });
 
-        document.getElementById('colorButton').addEventListener('click', () => {
-            const newColor = 'lime'; // Change to lime
-            console.log(`Changing color to: ${newColor}`);
-            
-            // Send color change message to the other player
-            gameInstance.players.forEach(player => {
-                player.sendMessage(`COLOR:${newColor}`);
-            });
-            gameInstance.updateColor(newColor); // Update color on local instance
-        });
-
-        gameInstance.start();
-
-        // Handle incoming messages from other players
-        gameInstance.onMessage((player, message) => {
-            if (message.startsWith('TIME:')) {
-                const time = message.split(':')[1];
-                console.log(`Received time: ${time}`);
-                alert(`Other player's time: ${time}`);
-            } else if (message.startsWith('COLOR:')) {
-                const color = message.split(':')[1];
-                console.log(`Received color change to: ${color}`);
-                gameInstance.updateColor(color); // Update color based on the message
+        // Handle button click to send input to other peers
+        document.getElementById('sendButton').addEventListener('click', () => {
+            const inputText = document.getElementById('inputText').value;
+            if (inputText) {
+                game.write2board(inputText);  // Send the input to other peers
             }
-        });
-
-        gameInstance.onDisconnected(() => {
-            console.log("Disconnected from the other player.");
         });
     </script>
 </body>
