@@ -3,89 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple NetplayJS Example</title>
+    <title>NetplayJS Simple Example</title>
     <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
     <style>
         body {
-            font-family: Arial, sans-serif;
-            background-color: black;
-            color: white;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             height: 100vh;
-            margin: 0;
+            background: black;
+            color: white;
+            font-family: Arial, sans-serif;
         }
-        canvas {
-            background-color: grey;
-            width: 600px;
-            height: 300px;
-            border: 2px solid white;
+        #display {
+            margin: 20px;
+            padding: 10px;
+            border: 1px solid white;
+            width: 300px;
+            height: 100px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
+    <div id="display">Waiting for input...</div>
     <input type="text" id="inputField" placeholder="Type something..." />
-    <button id="sendButton">Send to Board</button>
+    <button id="sendButton">Send</button>
 
     <script>
-        // Define a simple game class that just displays a message on the canvas
         class SimpleGame extends netplayjs.Game {
             constructor() {
                 super();
-                this.message = ""; // Message to display on the canvas
+                this.displayText = "Waiting for input...";
             }
 
-            draw(canvas) {
-                const ctx = canvas.getContext("2d");
-                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
-                ctx.fillStyle = "white";
-                ctx.font = "24px Arial";
-                ctx.fillText(this.message, 50, 150); // Draw the current message
+            onConnected() {
+                this.updateDisplay();
             }
 
-            // Function to update the board message
-            write2board(newMessage) {
-                this.message = newMessage;
-                this.draw(document.getElementById("gameCanvas")); // Redraw with new message
+            updateDisplay() {
+                const displayDiv = document.getElementById('display');
+                displayDiv.innerText = this.displayText; // Update display with the current text
+            }
+
+            // Update the display text and notify other players
+            writeToBoard(text) {
+                this.displayText = text;
+                this.updateDisplay();
+                this.broadcastMessage(text); // Send the text to other players
             }
         }
 
-        SimpleGame.canvasSize = { width: 600, height: 300 };
-
-        // Initialize the game with netplay
+        // Create a new game instance
         const gameInstance = new netplayjs.RollbackWrapper(SimpleGame);
-        gameInstance.start();
-
-        // Set up UI interactions
-        const inputField = document.getElementById("inputField");
-        const sendButton = document.getElementById("sendButton");
-        const canvas = document.getElementById("gameCanvas");
-
-        sendButton.addEventListener('click', () => {
-            const message = inputField.value;
-            if (message) {
-                // Update the local game board with the message
-                gameInstance.game.write2board(message);
-
-                // Send the message to the other player
-                gameInstance.players.forEach(player => {
-                    player.sendMessage(message);
-                });
-
-                // Clear the input field
-                inputField.value = '';
+        
+        // Handle send button click
+        document.getElementById('sendButton').addEventListener('click', () => {
+            const inputField = document.getElementById('inputField');
+            const text = inputField.value;
+            if (text) {
+                gameInstance.writeToBoard(text); // Call the writeToBoard method
+                inputField.value = ''; // Clear input field
             }
         });
 
-        // Handle incoming messages
+        // Handle incoming messages from other players
         gameInstance.onMessage((player, message) => {
-            // Update the board with the received message
-            gameInstance.game.write2board(message);
+            gameInstance.writeToBoard(message); // Update display with received text
         });
 
+        // Start the game
+        gameInstance.start();
     </script>
 </body>
 </html>
