@@ -16,64 +16,79 @@
             color: white;
             font-family: Arial, sans-serif;
         }
-        #display {
-            margin: 20px;
+        #messageBoard {
+            margin-top: 20px;
             padding: 10px;
             border: 1px solid white;
-            width: 300px;
+            width: 80%;
             height: 100px;
             overflow-y: auto;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        input {
+            padding: 10px;
+            width: 80%;
+            font-size: 18px;
+        }
+        button {
+            padding: 10px;
+            margin-top: 10px;
+            font-size: 18px;
         }
     </style>
 </head>
 <body>
-    <div id="display">Waiting for input...</div>
-    <input type="text" id="inputField" placeholder="Type something..." />
-    <button id="sendButton">Send</button>
+    <h1>NetplayJS Simple Example</h1>
+    <input type="text" id="messageInput" placeholder="Type a message...">
+    <button id="sendButton">Send Message</button>
+    <div id="messageBoard"></div>
 
     <script>
         class SimpleGame extends netplayjs.Game {
             constructor() {
                 super();
-                this.displayText = "Waiting for input...";
+                this.messages = [];
             }
 
             onConnected() {
-                this.updateDisplay();
+                console.log("Connected!");
             }
 
-            updateDisplay() {
-                const displayDiv = document.getElementById('display');
-                displayDiv.innerText = this.displayText; // Update display with the current text
+            draw() {
+                // Draw messages to the message board
+                const messageBoard = document.getElementById("messageBoard");
+                messageBoard.innerHTML = this.messages.join("<br>");
             }
 
-            // Update the display text and notify other players
-            writeToBoard(text) {
-                this.displayText = text;
-                this.updateDisplay();
-                this.broadcastMessage(text); // Send the text to other players
+            // Function to add a message
+            addMessage(message) {
+                this.messages.push(message);
+                this.draw(); // Update the display
             }
         }
 
-        // Create a new game instance
+        // Create an instance of the game
         const gameInstance = new netplayjs.RollbackWrapper(SimpleGame);
-        
-        // Handle send button click
-        document.getElementById('sendButton').addEventListener('click', () => {
-            const inputField = document.getElementById('inputField');
-            const text = inputField.value;
-            if (text) {
-                gameInstance.writeToBoard(text); // Call the writeToBoard method
-                inputField.value = ''; // Clear input field
+
+        // Setup event listener for the send button
+        document.getElementById("sendButton").addEventListener("click", () => {
+            const inputField = document.getElementById("messageInput");
+            const message = inputField.value.trim();
+            if (message) {
+                gameInstance.addMessage(message); // Add message to local instance
+                gameInstance.players.forEach(player => {
+                    player.sendMessage(message); // Send message to other peers
+                });
+                inputField.value = ""; // Clear input field
             }
         });
 
         // Handle incoming messages from other players
         gameInstance.onMessage((player, message) => {
-            gameInstance.writeToBoard(message); // Update display with received text
+            gameInstance.addMessage(message); // Add received message to the game instance
         });
 
-        // Start the game
+        // Start the game instance
         gameInstance.start();
     </script>
 </body>
