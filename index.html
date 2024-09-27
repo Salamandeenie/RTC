@@ -12,6 +12,7 @@
             align-items: center;
             height: 100vh;
             background: black;
+            overflow: hidden; /* Prevents scrollbars */
         }
         canvas {
             position: absolute;
@@ -32,23 +33,29 @@
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
+    <canvas id="gameCanvas" width="600" height="300"></canvas>
     <div id="controls">
         <button id="timeButton">Show Time</button>
         <button id="colorButton">Change Background Color</button>
     </div>
 
     <script>
-        class SimpleGame extends netplayjs.Game {
+        class SimpleGame extends netplayjs.RollbackGame {
             constructor() {
                 super();
                 this.color = 'black'; // Default background color
             }
 
-            // Wait for connections
-            onConnected() {
-                // Set canvas opacity to 0 to reveal buttons
-                document.getElementById('gameCanvas').style.opacity = '0';
+            // Called when the game starts
+            onStart() {
+                this.setState({
+                    color: this.color,
+                });
+            }
+
+            // Handle incoming state updates
+            onStateUpdate(state) {
+                this.color = state.color; // Update color from state
             }
 
             // Draw the current state of the game to a canvas.
@@ -58,40 +65,41 @@
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
             }
 
-            // Function to update the background color
+            // Update the background color
             updateColor(color) {
                 this.color = color;
+                this.setState({ color }); // Update state
             }
         }
 
-        SimpleGame.timestep = 1000 / 60; // 60 FPS
-        SimpleGame.canvasSize = { width: 600, height: 300 };
-
-        // Create and start the game
-        const gameInstance = new netplayjs.RollbackWrapper(SimpleGame);
+        // Initialize the game
+        const gameInstance = new SimpleGame();
         
+        // Setup canvas and controls
+        const canvas = document.getElementById('gameCanvas');
+        gameInstance.setup(canvas);
+
+        // Wait for connections
+        gameInstance.onConnected(() => {
+            canvas.style.opacity = '0'; // Set canvas opacity to 0
+        });
+
         // Set up button functionality
         document.getElementById('timeButton').addEventListener('click', () => {
             const now = new Date().toLocaleTimeString();
-            gameInstance.players.forEach(player => {
-                player.sendMessage(`Current time: ${now}`);
-            });
+            gameInstance.sendMessage(`Current time: ${now}`);
             console.log(`Current time: ${now}`);
         });
 
         document.getElementById('colorButton').addEventListener('click', () => {
             const newColor = 'lime'; // Change to lime
-            gameInstance.players.forEach(player => {
-                player.sendMessage(`Change color: ${newColor}`);
-                gameInstance.updateColor(newColor); // Update color on all instances
-            });
+            gameInstance.sendMessage(`Change color: ${newColor}`);
+            gameInstance.updateColor(newColor); // Update color on all instances
             console.log(`Background color changed to: ${newColor}`);
         });
 
-        gameInstance.start();
-
-        // Handle incoming messages from other players
-        gameInstance.onMessage((player, message) => {
+        // Handle incoming messages
+        gameInstance.onMessage((message) => {
             if (message.startsWith('Current time:')) {
                 console.log(message); // Log received time message
             } else if (message.startsWith('Change color:')) {
@@ -99,6 +107,9 @@
                 gameInstance.updateColor(color); // Update the color based on the message
             }
         });
+
+        // Start the game instance
+        gameInstance.start();
     </script>
 </body>
 </html>
