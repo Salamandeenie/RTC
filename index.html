@@ -3,95 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetPlayJS Peer-to-Peer Test</title>
+    <title>NetplayJS Test</title>
     <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
-        #messageArea {
-            width: 300px;
-            margin-bottom: 20px;
-        }
-        #output {
-            margin-top: 20px;
-            height: 100px;
-            width: 300px;
-            overflow-y: auto;
-            background-color: white;
-            border: 1px solid #ccc;
-        }
-    </style>
 </head>
 <body>
-    <h1>NetPlayJS Peer-to-Peer Connection</h1>
-    <input type="text" id="messageArea" placeholder="Type a message...">
-    <button id="sendButton">Send</button>
-    <div id="output"></div>
-
+    <canvas id="gameCanvas" width="600" height="300"></canvas>
     <script>
-        class SimpleChatGame extends netplayjs.Game {
+        class SimpleGame extends netplayjs.Game {
             constructor() {
                 super();
-                this.messages = [];
+                this.aPos = { x: 100, y: 150 };
+                this.bPos = { x: 500, y: 150 };
             }
 
             tick(playerInputs) {
-                // No game state to update every tick
+                for (const [player, input] of playerInputs.entries()) {
+                    const vel = input.arrowKeys();
+                    if (player.getID() == 0) {
+                        this.aPos.x += vel.x * 5;
+                        this.aPos.y -= vel.y * 5;
+                    } else if (player.getID() == 1) {
+                        this.bPos.x += vel.x * 5;
+                        this.bPos.y -= vel.y * 5;
+                    }
+                }
             }
 
             draw(canvas) {
-                // No rendering needed for chat
-            }
-
-            serialize() {
-                return this.messages;
-            }
-
-            deserialize(value) {
-                this.messages = value;
-            }
-
-            addMessage(message) {
-                this.messages.push(message);
-                this.notifyPlayers();
-            }
-
-            notifyPlayers() {
-                this.players.forEach(player => {
-                    player.send("newMessage", this.messages);
-                });
+                const ctx = canvas.getContext("2d");
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "red";
+                ctx.fillRect(this.aPos.x - 5, this.aPos.y - 5, 10, 10);
+                ctx.fillStyle = "blue";
+                ctx.fillRect(this.bPos.x - 5, this.bPos.y - 5, 10, 10);
             }
         }
 
-        SimpleChatGame.timestep = 1000 / 60; // Run at 60 FPS
-        SimpleChatGame.canvasSize = { width: 600, height: 300 };
+        SimpleGame.timestep = 1000 / 60; // 60 FPS
+        SimpleGame.canvasSize = { width: 600, height: 300 };
 
-        const gameWrapper = new netplayjs.RollbackWrapper(SimpleChatGame);
+        const gameWrapper = new netplayjs.RollbackWrapper(SimpleGame);
         gameWrapper.start();
-
-        const messageInput = document.getElementById("messageArea");
-        const sendButton = document.getElementById("sendButton");
-        const output = document.getElementById("output");
-
-        sendButton.addEventListener("click", () => {
-            const message = messageInput.value;
-            if (message) {
-                gameWrapper.getGame().addMessage(message);
-                messageInput.value = '';
-            }
-        });
-
-        // Listen for incoming messages
-        gameWrapper.getGame().on("newMessage", (messages) => {
-            output.innerHTML = messages.map(msg => `<div>${msg}</div>`).join('');
-        });
     </script>
 </body>
 </html>
