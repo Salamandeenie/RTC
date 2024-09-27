@@ -6,83 +6,91 @@
     <title>NetplayJS Example</title>
     <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
     <style>
-        body {
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 600px;
+            height: 300px;
+            opacity: 0; /* Start with canvas invisible */
+            transition: opacity 0.5s;
+        }
+
+        #buttonContainer {
+            position: absolute;
+            top: 0;
+            left: 0;
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background-color: #222;
-            color: white;
-        }
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            margin: 10px;
+            gap: 10px;
         }
     </style>
 </head>
 <body>
-    <h1>NetplayJS Game</h1>
-    <button id="sendMessage">Send Message</button>
     <canvas id="gameCanvas"></canvas>
+    <div id="buttonContainer">
+        <button id="showTimeBtn">Show Time</button>
+        <button id="changeColorBtn">Change Color</button>
+    </div>
     
     <script>
         class SimpleGame extends netplayjs.Game {
             constructor() {
                 super();
-                this.aPos = { x: 100, y: 150 };
-                this.bPos = { x: 500, y: 150 };
+                this.backgroundColor = 'black'; // Default background color
             }
 
             tick(playerInputs) {
-                for (const [player, input] of playerInputs.entries()) {
-                    const vel = input.arrowKeys();
-                    if (player.getID() == 0) {
-                        this.aPos.x += vel.x * 5;
-                        this.aPos.y -= vel.y * 5;
-                    } else if (player.getID() == 1) {
-                        this.bPos.x += vel.x * 5;
-                        this.bPos.y -= vel.y * 5;
-                    }
-                }
+                // Handle inputs for any additional game mechanics (not implemented)
             }
 
             draw(canvas) {
                 const ctx = canvas.getContext("2d");
-                ctx.fillStyle = "black";
+                ctx.fillStyle = this.backgroundColor;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "red";
-                ctx.fillRect(this.aPos.x - 5, this.aPos.y - 5, 10, 10);
-                ctx.fillStyle = "blue";
-                ctx.fillRect(this.bPos.x - 5, this.bPos.y - 5, 10, 10);
             }
 
-            // Override the log method to enable global consoling
-            log(message) {
-                console.log(message);
-                this.players.forEach(player => {
-                    player.send("console", message);
-                });
+            // Method to change background color
+            setBackgroundColor(color) {
+                this.backgroundColor = color;
             }
         }
 
-        SimpleGame.timestep = 1000 / 60;
+        SimpleGame.timestep = 1000 / 60; // Our game runs at 60 FPS
         SimpleGame.canvasSize = { width: 600, height: 300 };
-        
-        const game = new netplayjs.RollbackWrapper(SimpleGame);
-        game.start();
 
-        // Button event listener
-        document.getElementById('sendMessage').addEventListener('click', () => {
-            game.log("Boobies");
+        const gameInstance = new netplayjs.RollbackWrapper(SimpleGame);
+
+        // Wait for a connection to be made
+        gameInstance.on("connected", () => {
+            const canvas = document.getElementById("gameCanvas");
+            canvas.style.opacity = '1'; // Make the canvas visible
+
+            // Button to show the time
+            document.getElementById("showTimeBtn").addEventListener("click", () => {
+                const time = new Date().toLocaleTimeString();
+                console.log(`Time at this computer: ${time}`);
+                gameInstance.send("showTime", { time });
+            });
+
+            // Button to change background color
+            document.getElementById("changeColorBtn").addEventListener("click", () => {
+                const color = "lime";
+                console.log(`Changing background color to: ${color}`);
+                gameInstance.send("changeColor", { color });
+            });
         });
 
-        // Listen for incoming console messages
-        game.on('console', (message) => {
-            console.log("Received:", message);
+        // Listen for messages from other players
+        gameInstance.on("showTime", ({ time }) => {
+            console.log(`Time at the other computer: ${time}`);
         });
+
+        gameInstance.on("changeColor", ({ color }) => {
+            gameInstance.getCurrentGame().setBackgroundColor(color);
+        });
+
+        gameInstance.start(); // Start the game
     </script>
 </body>
 </html>
