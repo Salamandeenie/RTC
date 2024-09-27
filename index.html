@@ -3,47 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetplayJS Test</title>
+    <title>NetPlayJS Button Example</title>
     <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        #button {
+            padding: 20px;
+            font-size: 20px;
+            background-color: lightblue;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
+        }
+        #button.pressed {
+            background-color: blue;
+            transform: translateY(4px);
+        }
+    </style>
 </head>
 <body>
-    <canvas id="gameCanvas" width="600" height="300"></canvas>
+    <button id="button">Press Me!</button>
     <script>
-        class SimpleGame extends netplayjs.Game {
+        class ButtonGame extends netplayjs.Game {
             constructor() {
                 super();
-                this.aPos = { x: 100, y: 150 };
-                this.bPos = { x: 500, y: 150 };
+                this.buttonPressed = false; // Track button state
             }
 
             tick(playerInputs) {
                 for (const [player, input] of playerInputs.entries()) {
-                    const vel = input.arrowKeys();
-                    if (player.getID() == 0) {
-                        this.aPos.x += vel.x * 5;
-                        this.aPos.y -= vel.y * 5;
-                    } else if (player.getID() == 1) {
-                        this.bPos.x += vel.x * 5;
-                        this.bPos.y -= vel.y * 5;
+                    if (input.isButtonPressed()) {
+                        this.buttonPressed = true; // Set button as pressed
                     }
                 }
             }
 
-            draw(canvas) {
-                const ctx = canvas.getContext("2d");
-                ctx.fillStyle = "black";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "red";
-                ctx.fillRect(this.aPos.x - 5, this.aPos.y - 5, 10, 10);
-                ctx.fillStyle = "blue";
-                ctx.fillRect(this.bPos.x - 5, this.bPos.y - 5, 10, 10);
+            draw() {
+                // Not needed for this example
+            }
+
+            // Serialize button state
+            serialize() {
+                return { buttonPressed: this.buttonPressed };
+            }
+
+            // Load button state
+            deserialize(value) {
+                this.buttonPressed = value.buttonPressed;
+                this.updateButtonVisuals(); // Update visuals based on state
+            }
+
+            updateButtonVisuals() {
+                const button = document.getElementById("button");
+                button.classList.toggle("pressed", this.buttonPressed);
             }
         }
 
-        SimpleGame.timestep = 1000 / 60; // 60 FPS
-        SimpleGame.canvasSize = { width: 600, height: 300 };
+        ButtonGame.timestep = 1000 / 60; // 60 FPS
+        ButtonGame.canvasSize = { width: 600, height: 300 };
 
-        const gameWrapper = new netplayjs.RollbackWrapper(SimpleGame);
+        // Setup the game wrapper
+        const gameWrapper = new netplayjs.RollbackWrapper(ButtonGame);
+
+        // Event listener for button press
+        document.getElementById("button").addEventListener("mousedown", () => {
+            gameWrapper.getGame().buttonPressed = true; // Update game state
+            gameWrapper.getGame().updateButtonVisuals(); // Update visuals immediately
+        });
+
+        // Reset button state on mouseup
+        document.addEventListener("mouseup", () => {
+            gameWrapper.getGame().buttonPressed = false; // Reset button state
+            gameWrapper.getGame().updateButtonVisuals(); // Update visuals
+        });
+
+        // Start the game
         gameWrapper.start();
     </script>
 </body>
