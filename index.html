@@ -51,6 +51,7 @@
             onConnected() {
                 // Set canvas opacity to 0 to reveal buttons
                 document.getElementById('gameCanvas').style.opacity = '0';
+                console.log("Connected to another player.");
             }
 
             draw(canvas) {
@@ -75,15 +76,20 @@
         document.getElementById('timeButton').addEventListener('click', () => {
             const now = new Date().toLocaleTimeString();
             console.log(`Current time: ${now}`); // Log current time
+
+            // Send time message to the other player
             gameInstance.players.forEach(player => {
-                player.sendMessage(`Current time: ${now}`);
+                player.sendMessage(`TIME:${now}`);
             });
         });
 
         document.getElementById('colorButton').addEventListener('click', () => {
             const newColor = 'lime'; // Change to lime
+            console.log(`Changing color to: ${newColor}`);
+            
+            // Send color change message to the other player
             gameInstance.players.forEach(player => {
-                player.sendMessage(`Change color: ${newColor}`);
+                player.sendMessage(`COLOR:${newColor}`);
             });
             gameInstance.updateColor(newColor); // Update color on local instance
         });
@@ -92,12 +98,19 @@
 
         // Handle incoming messages from other players
         gameInstance.onMessage((player, message) => {
-            if (message.startsWith('Current time:')) {
-                console.log(message); // Log received time message
-            } else if (message.startsWith('Change color:')) {
-                const color = message.split(': ')[1];
-                gameInstance.updateColor(color); // Update the color based on the message
+            if (message.startsWith('TIME:')) {
+                const time = message.split(':')[1];
+                console.log(`Received time: ${time}`);
+                alert(`Other player's time: ${time}`);
+            } else if (message.startsWith('COLOR:')) {
+                const color = message.split(':')[1];
+                console.log(`Received color change to: ${color}`);
+                gameInstance.updateColor(color); // Update color based on the message
             }
+        });
+
+        gameInstance.onDisconnected(() => {
+            console.log("Disconnected from the other player.");
         });
     </script>
 </body>
