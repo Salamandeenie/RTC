@@ -3,172 +3,95 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC Host/Join Example</title>
+    <title>NetPlayJS Peer-to-Peer Test</title>
+    <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f0f0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+        #messageArea {
+            width: 300px;
+            margin-bottom: 20px;
+        }
+        #output {
+            margin-top: 20px;
+            height: 100px;
+            width: 300px;
+            overflow-y: auto;
+            background-color: white;
+            border: 1px solid #ccc;
+        }
+    </style>
 </head>
 <body>
-    <h1>WebRTC Room</h1>
-
-    <button id="hostButton">Host a Room</button>
-    <button id="joinButton">Join a Room</button>
-
-    <input id="roomIdInput" type="text" placeholder="Enter Room ID to Join" />
-    <button id="connectButton">Connect</button>
-
-    <p id="status"></p>
+    <h1>NetPlayJS Peer-to-Peer Connection</h1>
+    <input type="text" id="messageArea" placeholder="Type a message...">
+    <button id="sendButton">Send</button>
+    <div id="output"></div>
 
     <script>
-        const hostButton = document.getElementById('hostButton');
-        const joinButton = document.getElementById('joinButton');
-        const connectButton = document.getElementById('connectButton');
-        const roomIdInput = document.getElementById('roomIdInput');
-        const status = document.getElementById('status');
+        class SimpleChatGame extends netplayjs.Game {
+            constructor() {
+                super();
+                this.messages = [];
+            }
 
-        let peerConnection;
-        let dataChannel;
-        let signalingSocket;
-        let roomId = null;
+            tick(playerInputs) {
+                // No game state to update every tick
+            }
 
-        // Signaling server connection
-        function connectToSignalingServer() {
-            signalingSocket = new WebSocket('ws://localhost:8080'); // Replace with your signaling server
+            draw(canvas) {
+                // No rendering needed for chat
+            }
 
-            signalingSocket.onmessage = (message) => {
-                const data = JSON.parse(message.data);
+            serialize() {
+                return this.messages;
+            }
 
-                switch (data.type) {
-                    case 'room-created':
-                        roomId = data.roomId;
-                        status.textContent = `Room created! ID: ${roomId}`;
-                        break;
+            deserialize(value) {
+                this.messages = value;
+            }
 
-                    case 'peer-connected':
-                        status.textContent = 'Peer connected. Negotiating WebRTC connection...';
-                        createOffer();
-                        break;
+            addMessage(message) {
+                this.messages.push(message);
+                this.notifyPlayers();
+            }
 
-                    case 'joined-room':
-                        status.textContent = `Joined room ${data.roomId}. Negotiating WebRTC connection...`;
-                        break;
-
-                    case 'signal':
-                        handleSignal(data.signal);
-                        break;
-
-                    case 'error':
-                        status.textContent = `Error: ${data.message}`;
-                        break;
-                }
-            };
-        }
-
-        // WebRTC setup
-        function setupWebRTC() {
-            peerConnection = new RTCPeerConnection({
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' }
-                ]
-            });
-
-            // Handle ICE candidates
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate) {
-                    signalingSocket.send(JSON.stringify({
-                        type: 'signal',
-                        signal: { candidate: event.candidate },
-                        targetRoom: roomId
-                    }));
-                }
-            };
-
-            // Handle data channel events
-            peerConnection.ondatachannel = (event) => {
-                dataChannel = event.channel;
-                dataChannel.onmessage = (e) => {
-                    console.log('Received message:', e.data);
-                };
-            };
-
-            // If you're hosting, create the data channel
-            if (!dataChannel) {
-                dataChannel = peerConnection.createDataChannel('chat');
-                dataChannel.onmessage = (event) => {
-                    console.log('Received message:', event.data);
-                };
+            notifyPlayers() {
+                this.players.forEach(player => {
+                    player.send("newMessage", this.messages);
+                });
             }
         }
 
-        // Host a room
-        hostButton.onclick = () => {
-            connectToSignalingServer();
-            signalingSocket.onopen = () => {
-                signalingSocket.send(JSON.stringify({ type: 'create-room' }));
-                setupWebRTC();
-            };
-        };
+        SimpleChatGame.timestep = 1000 / 60; // Run at 60 FPS
+        SimpleChatGame.canvasSize = { width: 600, height: 300 };
 
-        // Join a room
-        joinButton.onclick = () => {
-            const roomToJoin = prompt('Enter room ID:');
-            if (roomToJoin) {
-                connectToSignalingServer();
-                roomId = roomToJoin;
-                signalingSocket.onopen = () => {
-                    signalingSocket.send(JSON.stringify({
-                        type: 'join-room',
-                        roomId: roomId,
-                        peerId: 'somePeerId'
-                    }));
-                    setupWebRTC();
-                };
+        const gameWrapper = new netplayjs.RollbackWrapper(SimpleChatGame);
+        gameWrapper.start();
+
+        const messageInput = document.getElementById("messageArea");
+        const sendButton = document.getElementById("sendButton");
+        const output = document.getElementById("output");
+
+        sendButton.addEventListener("click", () => {
+            const message = messageInput.value;
+            if (message) {
+                gameWrapper.getGame().addMessage(message);
+                messageInput.value = '';
             }
-        };
+        });
 
-        // Handle WebRTC offer creation (Host)
-        async function createOffer() {
-            const offer = await peerConnection.createOffer();
-            await peerConnection.setLocalDescription(offer);
-
-            signalingSocket.send(JSON.stringify({
-                type: 'signal',
-                signal: { sdp: peerConnection.localDescription },
-                targetRoom: roomId
-            }));
-        }
-
-        // Handle WebRTC answer creation (Peer)
-        async function createAnswer(offer) {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-
-            signalingSocket.send(JSON.stringify({
-                type: 'signal',
-                signal: { sdp: peerConnection.localDescription },
-                targetRoom: roomId
-            }));
-        }
-
-        // Handle incoming signaling data
-        async function handleSignal(signal) {
-            if (signal.sdp) {
-                if (signal.sdp.type === 'offer') {
-                    await createAnswer(signal.sdp);
-                } else if (signal.sdp.type === 'answer') {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-                }
-            }
-
-            if (signal.candidate) {
-                await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-            }
-        }
-
-        // Example message sending (from host or peer after connection)
-        connectButton.onclick = () => {
-            if (dataChannel) {
-                dataChannel.send('Hello from the client!');
-            }
-        };
+        // Listen for incoming messages
+        gameWrapper.getGame().on("newMessage", (messages) => {
+            output.innerHTML = messages.map(msg => `<div>${msg}</div>`).join('');
+        });
     </script>
 </body>
 </html>
