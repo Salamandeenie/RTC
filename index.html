@@ -3,81 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simple Netplay Example</title>
+    <title>Simple NetplayJS Example</title>
+    <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
-            margin-top: 50px;
+            background-color: black;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
         }
-        #displayBoard {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid black;
-            width: 200px;
-            height: 100px;
+        canvas {
+            background-color: grey;
+            width: 600px;
+            height: 300px;
+            border: 2px solid white;
         }
     </style>
 </head>
 <body>
-    <h1>Simple Netplay Example</h1>
-    <input type="text" id="inputText" placeholder="Write something">
-    <button id="sendButton">Send</button>
-    
-    <div id="displayBoard">Waiting for input...</div>
-
-    <!-- Load the NetplayJS library -->
-    <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
+    <canvas id="gameCanvas"></canvas>
+    <input type="text" id="inputField" placeholder="Type something..." />
+    <button id="sendButton">Send to Board</button>
 
     <script>
-        // Create a simple class extending from Netplayjs Game
+        // Define a simple game class that just displays a message on the canvas
         class SimpleGame extends netplayjs.Game {
             constructor() {
                 super();
-                this.state = {
-                    message: 'Waiting for input...'
-                };
+                this.message = ""; // Message to display on the canvas
             }
 
-            // Called when a message is received from the other peer
-            onMessage(player, message) {
-                console.log(`Received message: ${message}`);
-                this.updateDisplay(message);
+            draw(canvas) {
+                const ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+                ctx.fillStyle = "white";
+                ctx.font = "24px Arial";
+                ctx.fillText(this.message, 50, 150); // Draw the current message
             }
 
-            // Update the display board with the new message
-            updateDisplay(message) {
-                this.state.message = message;
-                document.getElementById('displayBoard').innerText = this.state.message;
-            }
-
-            // This will be called when the "Send" button is pressed
-            write2board(message) {
-                console.log(`Sending message: ${message}`);
-                this.players.forEach(player => player.sendMessage(message));
-                this.updateDisplay(message);
+            // Function to update the board message
+            write2board(newMessage) {
+                this.message = newMessage;
+                this.draw(document.getElementById("gameCanvas")); // Redraw with new message
             }
         }
 
-        // Initialize the game
-        const game = new SimpleGame();
+        SimpleGame.canvasSize = { width: 600, height: 300 };
 
-        // Connect to peer (auto-host or auto-join)
-        game.startHost('simple-netplay-example').then(() => {
-            console.log('Connected as host!');
-        }).catch(() => {
-            game.startClient('simple-netplay-example').then(() => {
-                console.log('Connected as client!');
-            });
-        });
+        // Initialize the game with netplay
+        const gameInstance = new netplayjs.RollbackWrapper(SimpleGame);
+        gameInstance.start();
 
-        // Handle button click to send input to other peers
-        document.getElementById('sendButton').addEventListener('click', () => {
-            const inputText = document.getElementById('inputText').value;
-            if (inputText) {
-                game.write2board(inputText);  // Send the input to other peers
+        // Set up UI interactions
+        const inputField = document.getElementById("inputField");
+        const sendButton = document.getElementById("sendButton");
+        const canvas = document.getElementById("gameCanvas");
+
+        sendButton.addEventListener('click', () => {
+            const message = inputField.value;
+            if (message) {
+                // Update the local game board with the message
+                gameInstance.game.write2board(message);
+
+                // Send the message to the other player
+                gameInstance.players.forEach(player => {
+                    player.sendMessage(message);
+                });
+
+                // Clear the input field
+                inputField.value = '';
             }
         });
+
+        // Handle incoming messages
+        gameInstance.onMessage((player, message) => {
+            // Update the board with the received message
+            gameInstance.game.write2board(message);
+        });
+
     </script>
 </body>
 </html>
