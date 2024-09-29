@@ -4,14 +4,14 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
-  <title>PeerJS Example</title>
+  <title>PeerJS Example with Return Ping</title>
 </head>
 <body>
   <button onclick="connectToPeer()">Connect to Peer</button>
   <div id="messages"></div>
 
   <script>
-    const peer = new Peer(); // Uses free PeerJS signaling server
+    const peer = new Peer();
     let conn;
 
     peer.on('open', function(id) {
@@ -24,14 +24,23 @@
       conn.on('data', function(data) {
         console.log('Received', data);
         document.getElementById('messages').innerHTML += '<br>Received: ' + data;
+
+        // Send a "pong" acknowledgment back
+        conn.send('Pong: Acknowledgment received!');
       });
     });
 
     function connectToPeer() {
       const peerId = prompt('Enter Peer ID:');
       conn = peer.connect(peerId);
+
       conn.on('open', function() {
-        conn.send('Hello from the other peer!');
+        conn.send('Ping: Hello, I exist!');
+      });
+
+      conn.on('data', function(data) {
+        console.log('Received acknowledgment:', data);
+        document.getElementById('messages').innerHTML += '<br>Acknowledgment: ' + data;
       });
     }
   </script>
