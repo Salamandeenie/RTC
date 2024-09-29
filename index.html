@@ -1,95 +1,39 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NetplayJS Simple Example</title>
-    <script src="https://unpkg.com/netplayjs@0.4.1/dist/netplay.js"></script>
-    <style>
-        body {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-            background: black;
-            color: white;
-            font-family: Arial, sans-serif;
-        }
-        #messageBoard {
-            margin-top: 20px;
-            padding: 10px;
-            border: 1px solid white;
-            width: 80%;
-            height: 100px;
-            overflow-y: auto;
-            background: rgba(255, 255, 255, 0.1);
-        }
-        input {
-            padding: 10px;
-            width: 80%;
-            font-size: 18px;
-        }
-        button {
-            padding: 10px;
-            margin-top: 10px;
-            font-size: 18px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+  <title>PeerJS Example</title>
 </head>
 <body>
-    <h1>NetplayJS Simple Example</h1>
-    <input type="text" id="messageInput" placeholder="Type a message...">
-    <button id="sendButton">Send Message</button>
-    <div id="messageBoard"></div>
+  <button onclick="connectToPeer()">Connect to Peer</button>
+  <div id="messages"></div>
 
-    <script>
-        class SimpleGame extends netplayjs.Game {
-            constructor() {
-                super();
-                this.messages = [];
-            }
+  <script>
+    const peer = new Peer(); // Uses free PeerJS signaling server
+    let conn;
 
-            onConnected() {
-                console.log("Connected!");
-            }
+    peer.on('open', function(id) {
+      console.log('My peer ID is: ' + id);
+      document.getElementById('messages').innerHTML = 'Your Peer ID: ' + id;
+    });
 
-            draw() {
-                // Draw messages to the message board
-                const messageBoard = document.getElementById("messageBoard");
-                messageBoard.innerHTML = this.messages.join("<br>");
-            }
+    peer.on('connection', function(connection) {
+      conn = connection;
+      conn.on('data', function(data) {
+        console.log('Received', data);
+        document.getElementById('messages').innerHTML += '<br>Received: ' + data;
+      });
+    });
 
-            // Function to add a message
-            addMessage(message) {
-                this.messages.push(message);
-                this.draw(); // Update the display
-            }
-        }
-
-        // Create an instance of the game
-        const gameInstance = new netplayjs.RollbackWrapper(SimpleGame);
-
-        // Setup event listener for the send button
-        document.getElementById("sendButton").addEventListener("click", () => {
-            const inputField = document.getElementById("messageInput");
-            const message = inputField.value.trim();
-            if (message) {
-                gameInstance.addMessage(message); // Add message to local instance
-                gameInstance.players.forEach(player => {
-                    player.sendMessage(message); // Send message to other peers
-                });
-                inputField.value = ""; // Clear input field
-            }
-        });
-
-        // Handle incoming messages from other players
-        gameInstance.onMessage((player, message) => {
-            gameInstance.addMessage(message); // Add received message to the game instance
-        });
-
-        // Start the game instance
-        gameInstance.start();
-    </script>
+    function connectToPeer() {
+      const peerId = prompt('Enter Peer ID:');
+      conn = peer.connect(peerId);
+      conn.on('open', function() {
+        conn.send('Hello from the other peer!');
+      });
+    }
+  </script>
 </body>
 </html>
