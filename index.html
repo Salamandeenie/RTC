@@ -1,48 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
-  <title>PeerJS Example with Return Ping</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://unpkg.com/peerjs@1.3.1/dist/peerjs.min.js"></script>
+    <title>PeerJS Chat Example</title>
+    <style>
+        #chat 
+        {
+            border: 1px solid #ccc;
+            padding: 10px;
+            width: 300px;
+            height: 200px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+        }
+    </style>
 </head>
+
 <body>
-  <button onclick="connectToPeer()">Connect to Peer</button>
-  <div id="messages"></div>
+    <button onclick="connectToPeer()">Connect to Peer</button>
+    <div id="messages"></div>
+    <div id="chat"></div>
+    <input type="text" id="messageInput" placeholder="Type a message..." />
+    <button id="sendButton" onclick="sendMessage()">Send</button>
 
-  <script>
-    const peer = new Peer();
-    let conn;
+    <script>
+        const peer = new Peer();
+        let conn;
+        let isConnected = false; // Track connection status
 
-    peer.on('open', function(id) {
-      console.log('My peer ID is: ' + id);
-      document.getElementById('messages').innerHTML = 'Your Peer ID: ' + id;
-    });
+        //// MISC ////
+        peer.on('open', function(id) 
+        {
+            console.log('My peer ID is: ' + id);
+            document.getElementById('messages').innerHTML = 'Your Peer ID: ' + id;
+        });
 
-    peer.on('connection', function(connection) {
-      conn = connection;
-      conn.on('data', function(data) {
-        console.log('Received', data);
-        document.getElementById('messages').innerHTML += '<br>Received: ' + data;
+        peer.on('connection', function(connection) 
+        {
+            conn = connection;
 
-        // Send a "pong" acknowledgment back
-        conn.send('Pong: Acknowledgment received!');
-      });
-    });
+            //// INCOMING ////
+            conn.on('data', function(data) 
+            {
+                console.log('Received', data);
+                addMessageToChat('Peer: ' + data);
 
-    function connectToPeer() {
-      const peerId = prompt('Enter Peer ID:');
-      conn = peer.connect(peerId);
+                // Send a "pong" acknowledgment back only on first connection
+                if (!isConnected) 
+                {
+                    conn.send('Connection Successful!');
+                    isConnected = true; // Update the connection status
+                }
+            });
+        });
 
-      conn.on('open', function() {
-        conn.send('Ping: Hello, I exist!');
-      });
+        //// OUTGOING ////
+        function connectToPeer() 
+        {
+            const peerId = prompt('Enter Peer ID:');
+            conn = peer.connect(peerId);
 
-      conn.on('data', function(data) {
-        console.log('Received acknowledgment:', data);
-        document.getElementById('messages').innerHTML += '<br>Acknowledgment: ' + data;
-      });
-    }
-  </script>
+            conn.on('open', function() 
+            {
+                conn.send('Incoming Connection!');
+            });
+
+            conn.on('data', function(data) 
+            {
+                console.log('Received acknowledgment:', data);
+                addMessageToChat('Peer: ' + data);
+            });
+        }
+
+        function sendMessage() 
+        {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value;
+
+            if (message && conn) 
+            {
+                conn.send(message);
+                addMessageToChat('You: ' + message);
+                messageInput.value = ''; // Clear input after sending
+            }
+        }
+
+        function addMessageToChat(message) 
+        {
+            const chat = document.getElementById('chat');
+            chat.innerHTML += '<div>' + message + '</div>';
+            chat.scrollTop = chat.scrollHeight; // Scroll to the bottom
+        }
+    </script>
 </body>
+
 </html>
